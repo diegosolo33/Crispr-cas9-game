@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CRISPR-Cas9: Editor Genético - Juego Educativo</title>
+    <meta name="description" content="Juego educativo interactivo sobre edición genética CRISPR-Cas9. Aprende sobre biotecnología de forma divertida.">
+    <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+    <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @keyframes ping {
+            75%, 100% {
+                transform: scale(2);
+                opacity: 0;
+            }
+        }
+        .animate-ping {
+            animation: ping 1s cubic-bezier(0, 0, 0.2, 1) infinite;
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        const Scissors = ({ className }) => (
+            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879M12 12L9.121 9.121m0 5.758a3 3 0 10-4.243 4.243 3 3 0 004.243-4.243zm0-5.758a3 3 0 10-4.243-4.243 3 3 0 004.243 4.243z" />
+            </svg>
+        );
+
+        const Trophy = ({ className }) => (
+            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+            </svg>
+        );
+
+        const ArrowRight = ({ className }) => (
+            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+            </svg>
+        );
+
+        const CRISPRGame = () => {
+            const [level, setLevel] = useState(1);
+            const [scissorPos, setScissorPos] = useState(0);
+            const [dnaBlocks, setDnaBlocks] = useState([]);
+            const [targetCuts, setTargetCuts] = useState([]);
+            const [cuts, setCuts] = useState([]);
+            const [gameState, setGameState] = useState('playing');
+            const [score, setScore] = useState(0);
+            const [showInstructions, setShowInstructions] = useState(true);
+            const [isMoving, setIsMoving] = useState(true);
+            const [direction, setDirection] = useState(1);
+            const [showTransformation, setShowTransformation] = useState(false);
+            const [images, setImages] = useState({});
+            const [showImageUpload, setShowImageUpload] = useState(false);
+
+            const levels = [
+                { 
+                    name: "Planta de Interior Débil", 
+                    blocks: 6, 
+                    targets: [2, 4], 
+                    speed: 400,
+                    description: "Activa genes de fotosíntesis eficiente",
+                    result: "¡Planta revitalizada! Ahora crece más fuerte.",
+                    emoji: "🌱",
+                    emojiAfter: "🌿",
+                    imageKey: "plant"
+                },
+                { 
+                    name: "Bacteria Resistente", 
+                    blocks: 8, 
+                    targets: [1, 5], 
+                    speed: 380,
+                    description: "Desactiva genes de resistencia antibiótica",
+                    result: "¡Bacteria neutralizada! Ya no es resistente.",
+                    emoji: "🦠",
+                    emojiAfter: "💊",
+                    imageKey: "bacteria"
+                },
+                { 
+                    name: "Tomate de Maduración Rápida", 
+                    blocks: 9, 
+                    targets: [2, 6], 
+                    speed: 360,
+                    description: "Modifica genes de maduración",
+                    result: "¡Tomate mejorado! Durará más tiempo fresco.",
+                    emoji: "🍅",
+                    emojiAfter: "🍅",
+                    imageKey: "tomato"
+                },
+                { 
+                    name: "Mosquito Transmisor de Malaria", 
+                    blocks: 10, 
+                    targets: [3, 7], 
+                    speed: 340,
+                    description: "Bloquea genes de susceptibilidad al parásito",
+                    result: "¡Mosquito modificado! Ya no transmite malaria.",
+                    emoji: "🦟",
+                    emojiAfter: "🦟",
+                    imageKey: "mosquito"
+                },
+                { 
+                    name: "Vaca con Mastitis", 
+                    blocks: 12, 
+                    targets: [2, 6, 9], 
+                    speed: 320,
+                    description: "Fortalece el sistema inmune bovino",
+                    result: "¡Vaca curada! Su sistema inmune es más fuerte.",
+                    emoji: "🐄",
+                    emojiAfter: "🐄",
+                    imageKey: "cow"
+                },
+                { 
+                    name: "Arroz Común", 
+                    blocks: 14, 
+                    targets: [3, 7, 11], 
+                    speed: 300,
+                    description: "Inserta genes para producir vitamina A",
+                    result: "¡Arroz dorado creado! Previene deficiencia vitamínica.",
+                    emoji: "🌾",
+                    emojiAfter: "🌾",
+                    imageKey: "rice"
+                },
+                { 
+                    name: "Abeja Polinizadora Débil", 
+                    blocks: 16, 
+                    targets: [4, 8, 12], 
+                    speed: 280,
+                    description: "Mejora eficiencia de recolección",
+                    result: "¡Abeja mejorada! Más productiva y saludable.",
+                    emoji: "🐝",
+                    emojiAfter: "🐝",
+                    imageKey: "bee"
+                },
+                { 
+                    name: "Salmón de Crecimiento Lento", 
+                    blocks: 18, 
+                    targets: [3, 9, 14], 
+                    speed: 260,
+                    description: "Activa hormona de crecimiento acelerado",
+                    result: "¡Salmón modificado! Crece el doble de rápido.",
+                    emoji: "🐟",
+                    emojiAfter: "🐟",
+                    imageKey: "salmon"
+                },
+                { 
+                    name: "Ratón con Distrofia Muscular", 
+                    blocks: 20, 
+                    targets: [5, 10, 15], 
+                    speed: 240,
+                    description: "Repara el gen DMD defectuoso",
+                    result: "¡Ratón curado! Los músculos se regeneran.",
+                    emoji: "🐭",
+                    emojiAfter: "🐭",
+                    imageKey: "mouse"
+                },
+                { 
+                    name: "Secuencia Genética Compleja", 
+                    blocks: 24, 
+                    targets: [4, 9, 14, 19], 
+                    speed: 220,
+                    description: "Edición multi-gen para terapia avanzada",
+                    result: "¡Edición perfecta! Terapia genética completada.",
+                    emoji: "🧬",
+                    emojiAfter: "✨",
+                    imageKey: "dna"
+                }
+            ];
+
+            useEffect(() => {
+                initializeLevel();
+            }, [level]);
+
+            useEffect(() => {
+                if (gameState !== 'playing' || !isMoving) return;
+
+                const currentLevel = levels[level - 1];
+                const interval = setInterval(() => {
+                    setScissorPos(prev => {
+                        const next = prev + direction;
+                        
+                        if (next >= dnaBlocks.length) {
+                            setDirection(-1);
+                            return dnaBlocks.length - 1;
+                        } else if (next < 0) {
+                            setDirection(1);
+                            return 0;
+                        }
+                        
+                        return next;
+                    });
+                }, currentLevel.speed);
+
+                return () => clearInterval(interval);
+            }, [gameState, isMoving, direction, dnaBlocks.length, level]);
+
+            const initializeLevel = () => {
+                const currentLevel = levels[level - 1];
+                const blocks = Array(currentLevel.blocks).fill(null).map((_, i) => ({
+                    id: i,
+                    isTarget: currentLevel.targets.includes(i),
+                    isCut: false,
+                    isHighlighted: false
+                }));
+                setDnaBlocks(blocks);
+                setTargetCuts(currentLevel.targets);
+                setCuts([]);
+                setScissorPos(0);
+                setGameState('playing');
+                setIsMoving(true);
+                setDirection(1);
+                setShowTransformation(false);
+            };
+
+            const handleImageUpload = (imageKey, file) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    setImages(prev => ({
+                        ...prev,
+                        [imageKey]: e.target.result
+                    }));
+                };
+                reader.readAsDataURL(file);
+            };
+
+            const handleKeyDown = (e) => {
+                if (gameState !== 'playing') return;
+                
+                if (e.key === ' ' || e.key === 'Enter') {
+                    e.preventDefault();
+                    handleCut();
+                }
+            };
+
+            useEffect(() => {
+                window.addEventListener('keydown', handleKeyDown);
+                return () => window.removeEventListener('keydown', handleKeyDown);
+            }, [gameState, dnaBlocks, cuts, scissorPos]);
+
+            useEffect(() => {
+                const newBlocks = dnaBlocks.map((block, i) => ({
+                    ...block,
+                    isHighlighted: Math.abs(i - scissorPos) <= 1
+                }));
+                setDnaBlocks(newBlocks);
+            }, [scissorPos]);
+
+            const handleCut = () => {
+                if (cuts.includes(scissorPos)) return;
+
+                setIsMoving(false);
+
+                const newCuts = [...cuts, scissorPos];
+                setCuts(newCuts);
+
+                const newBlocks = dnaBlocks.map((block, i) => 
+                    i === scissorPos ? { ...block, isCut: true } : block
+                );
+                setDnaBlocks(newBlocks);
+
+                const correctCuts = newCuts.filter(cut => targetCuts.includes(cut));
+                const incorrectCuts = newCuts.filter(cut => !targetCuts.includes(cut));
+
+                if (incorrectCuts.length > 0) {
+                    setTimeout(() => {
+                        setGameState('playing');
+                        initializeLevel();
+                    }, 1000);
+                    return;
+                }
+
+                if (correctCuts.length === targetCuts.length) {
+                    setScore(prev => prev + (100 + (level * 10)));
+                    setGameState('success');
+                    
+                    setTimeout(() => {
+                        setGameState('zooming');
+                        setShowTransformation(true);
+                        
+                        setTimeout(() => {
+                            if (level < levels.length) {
+                                setLevel(prev => prev + 1);
+                            } else {
+                                setGameState('complete');
+                            }
+                        }, 4000);
+                    }, 1500);
+                } else {
+                    setTimeout(() => setIsMoving(true), 500);
+                }
+            };
+
+            const currentLevel = levels[level - 1];
+
+            if (showImageUpload) {
+                return (
+                    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center p-4">
+                        <div className="bg-white rounded-2xl p-8 max-w-4xl shadow-2xl w-full">
+                            <h1 className="text-3xl font-bold text-center mb-6 text-purple-900">
+                                📸 Cargar Imágenes (Opcional)
+                            </h1>
+                            <p className="text-gray-600 mb-6 text-center">
+                                Puedes subir imágenes personalizadas de organismos enfermos/sanos para cada nivel. Si no subes imágenes, se usarán emojis animados.
+                            </p>
+                            
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6 max-h-96 overflow-y-auto">
+                                {levels.map((lvl, idx) => (
+                                    <div key={idx} className="bg-gray-100 p-4 rounded-lg">
+                                        <div className="text-center mb-2">
+                                            <span className="text-3xl">{lvl.emoji}</span>
+                                            <p className="text-xs font-semibold mt-1">{lvl.name}</p>
+                                        </div>
+                                        <label className="block">
+                                            <input
+                                                type="file"
+                                                accept="image/*"
+                                                onChange={(e) => {
+                                                    if (e.target.files[0]) {
+                                                        handleImageUpload(`${lvl.imageKey}_before`, e.target.files[0]);
+                                                    }
+                                                }}
+                                                className="hidden"
+                                            />
+                                            <div className="cursor-pointer bg-blue-500 text-white text-xs py-2 px-3 rounded hover:bg-blue-600 text-center mb-1">
+                                                Antes
+                                            </div>
+                                        </label>
+                                        <label className="block">
+                                            <input
+                                                type="file"
+                                                accept="image/*"
+                                                onChange={(e) => {
+                                                    if (e.target.files[0]) {
+                                                        handleImageUpload(`${lvl.imageKey}_after`, e.target.files[0]);
+                                                    }
+                                                }}
+                                                className="hidden"
+                                            />
+                                            <div className="cursor-pointer bg-green-500 text-white text-xs py-2 px-3 rounded hover:bg-green-600 text-center">
+                                                Después
+                                            </div>
+                                        </label>
+                                    </div>
+                                ))}
+                            </div>
+
+                            <div className="flex gap-4">
+                                <button
+                                    onClick={() => setShowImageUpload(false)}
+                                    className="flex-1 bg-gray-500 text-white py-3 rounded-xl font-bold hover:bg-gray-600 transition-all"
+                                >
+                                    Omitir (Usar Emojis)
+                                </button>
+                                <button
+                                    onClick={() => setShowImageUpload(false)}
+                                    className="flex-1 bg-gradient-to-r from-purple-600 to-blue-600 text-white py-3 rounded-xl font-bold hover:from-purple-700 hover:to-blue-700 transition-all"
+                                >
+                                    Continuar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            if (showInstructions) {
+                return (
+                    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center p-4">
+                        <div className="bg-white rounded-2xl p-8 max-w-2xl shadow-2xl">
+                            <h1 className="text-4xl font-bold text-center mb-6 text-purple-900">
+                                🧬 CRISPR-Cas9: Editor Genético
+                            </h1>
+                            <div className="space-y-4 text-lg">
+                                <p className="text-gray-700">
+                                    <strong>Misión:</strong> Completa 10 niveles de edición genética con dificultad creciente.
+                                </p>
+                                <div className="bg-purple-100 p-4 rounded-lg">
+                                    <p className="font-semibold text-purple-900 mb-2">🎮 Controles:</p>
+                                    <ul className="space-y-2 text-gray-700">
+                                        <li>⌨️ <strong>Espacio/Enter:</strong> Detener y cortar el ADN</li>
+                                        <li>✂️ La tijera Cas9 se mueve automáticamente</li>
+                                        <li>⚡ Cada nivel es más rápido y largo</li>
+                                    </ul>
+                                </div>
+                                <div className="bg-yellow-100 p-4 rounded-lg">
+                                    <p className="font-semibold text-yellow-900 mb-2">⚠️ Reglas:</p>
+                                    <ul className="space-y-1 text-gray-700">
+                                        <li>• Presiona Espacio cuando la tijera esté sobre un bloque <span className="text-red-600 font-bold">rojo 🎯</span></li>
+                                        <li>• Los bloques brillan cuando la tijera está cerca</li>
+                                        <li>• Un error reinicia el nivel actual</li>
+                                        <li>• La velocidad aumenta con cada nivel</li>
+                                    </ul>
+                                </div>
+                                <div className="bg-green-100 p-4 rounded-lg">
+                                    <p className="font-semibold text-green-900 mb-2">🏆 Progresión:</p>
+                                    <ul className="space-y-1 text-gray-700">
+                                        <li>• Nivel 1-3: Principiante (6-9 bloques)</li>
+                                        <li>• Nivel 4-7: Intermedio (10-16 bloques)</li>
+                                        <li>• Nivel 8-10: Experto (18-24 bloques)</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div className="flex gap-3 mt-6">
+                                <button
+                                    onClick={() => setShowImageUpload(true)}
+                                    className="flex-1 bg-gray-600 text-white py-4 rounded-xl text-lg font-bold hover:bg-gray-700 transition-all transform hover:scale-105 shadow-lg"
+                                >
+                                    📸 Cargar Imágenes
+                                </button>
+                                <button
+                                    onClick={() => setShowInstructions(false)}
+                                    className="flex-1 bg-gradient-to-r from-purple-600 to-blue-600 text-white py-4 rounded-xl text-lg font-bold hover:from-purple-700 hover:to-blue-700 transition-all transform hover:scale-105 shadow-lg"
+                                >
+                                    ¡Comenzar! 🧬
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            if (gameState === 'complete') {
+                return (
+                    <div className="min-h-screen bg-gradient-to-br from-green-900 via-emerald-900 to-teal-900 flex items-center justify-center p-4">
+                        <div className="bg-white rounded-2xl p-8 max-w-2xl shadow-2xl text-center">
+                            <Trophy className="w-24 h-24 text-yellow-500 mx-auto mb-4 animate-bounce" />
+                            <h1 className="text-5xl font-bold text-green-900 mb-4">
+                                ¡Científico CRISPR Maestro!
+                            </h1>
+                            <p className="text-2xl text-gray-700 mb-6">
+                                Has completado los 10 niveles de edición genética
+                            </p>
+                            <div className="text-7xl font-bold text-green-600 mb-8">
+                                {score} puntos
+                            </div>
+                            <div className="bg-yellow-50 p-6 rounded-xl mb-6">
+                                <h3 className="text-xl font-bold text-yellow-900 mb-3">🎓 Logros Desbloqueados</h3>
+                                <div className="grid grid-cols-2 gap-3 text-left">
+                                    <div className="bg-white p-3 rounded-lg shadow">
+                                        <span className="text-2xl">🌱</span>
+                                        <p className="text-sm font-semibold">Botánico Genético</p>
+                                    </div>
+                                    <div className="bg-white p-3 rounded-lg shadow">
+                                        <span className="text-2xl">🐄</span>
+                                        <p className="text-sm font-semibold">Veterinario Molecular</p>
+                                    </div>
+                                    <div className="bg-white p-3 rounded-lg shadow">
+                                        <span className="text-2xl">🐝</span>
+                                        <p className="text-sm font-semibold">Conservacionista</p>
+                                    </div>
+                                    <div className="bg-white p-3 rounded-lg shadow">
+                                        <span className="text-2xl">🧬</span>
+                                        <p className="text-sm font-semibold">Maestro CRISPR</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => {
+                                    setLevel(1);
+                                    setScore(0);
+                                    setShowInstructions(true);
+                                }}
+                                className="bg-gradient-to-r from-green-600 to-blue-600 text-white px-8 py-4 rounded-xl text-xl font-bold hover:from-green-700 hover:to-blue-700 transition-all transform hover:scale-105 shadow-lg"
+                            >
+                                Jugar de Nuevo
+                            </button>
+                        </div>
+                    </div>
+                );
+            }
+
+            if (gameState === 'zooming' && showTransformation) {
+                const beforeImg = images[`${currentLevel.imageKey}_before`];
+                const afterImg = images[`${currentLevel.imageKey}_after`];
+
+                return (
+                    <div className="min-h-screen bg-gradient-to-br from-green-500 via-emerald-500 to-teal-500 flex items-center justify-center p-4 overflow-hidden">
+                        <div className="text-center max-w-4xl w-full">
+                            <h2 className="text-5xl font-bold text-white mb-8 animate-pulse">
+                                ¡Edición Genética Exitosa!
+                            </h2>
+                            
+                            <div className="relative w-full max-w-2xl mx-auto mb-8" style={{ height: '400px' }}>
+                                <div 
+                                    className={`absolute inset-0 flex items-center justify-center transition-all duration-2000 ${
+                                        showTransformation ? 'opacity-0 scale-50' : 'opacity-100 scale-100'
+                                    }`}
+                                    style={{ transitionDuration: '2s' }}
+                                >
+                                    {beforeImg ? (
+                                        <img 
+                                            src={beforeImg}
+                                            alt="Antes"
+                                            className="max-w-full max-h-full object-contain drop-shadow-2xl"
+                                        />
+                                    ) : (
+                                        <div className="w-80 h-80 flex items-center justify-center bg-white bg-opacity-20 rounded-2xl backdrop-blur">
+                                            <span className="text-9xl" style={{ filter: 'grayscale(100%)', opacity: 0.6 }}>
+                                                {currentLevel.emoji}
+                                            </span>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div 
+                                    className={`absolute inset-0 flex items-center justify-center transition-all ${
+                                        showTransformation ? 'opacity-100 scale-100' : 'opacity-0 scale-50'
+                                    }`}
+                                    style={{ transitionDuration: '2s', transitionDelay: '0.5s' }}
+                                >
+                                    {afterImg ? (
+                                        <img 
+                                            src={afterImg}
+                                            alt="Después"
+                                            className="max-w-full max-h-full object-contain drop-shadow-2xl animate-bounce"
+                                        />
+                                    ) : (
+                                        <div className="w-80 h-80 flex items-center justify-center bg-white bg-opacity-20 rounded-2xl backdrop-blur animate-bounce">
+                                            <span className="text-9xl">
+                                                {currentLevel.emojiAfter}
+                                            </span>
+                                        </div>
+                                    )}
+                                    
+                                    <div className="absolute inset-0 pointer-events-none">
+                                        {[...Array(30)].map((_, i) => (
+                                            <div
+                                                key={i}
+                                                className="absolute text-yellow-300 text-3xl animate-ping"
+                                                style={{
+                                                    left: `${Math.random() * 100}%`,
+                                                    top: `${Math.random() * 100}%`,
+                                                    animationDelay: `${Math.random() * 2}s`,
+                                                    animationDuration: `${1 + Math.random()}s`
+                                                }}
+                                            >
+                                                ✨
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="bg-white bg-opacity-20 backdrop-blur-md rounded-xl p-6 text-white">
+                                <h3 className="text-3xl font-bold mb-2">
+                                    {currentLevel.result}
+                                </h3>
+                                <div className="flex items-center justify-center gap-2 text-xl mt-4">
+                                    {level < levels.length ? (
+                                        <>
+                                            <span>Siguiente nivel: {levels[level].name}</span>
+                                            <ArrowRight className="w-6 h-6 animate-pulse" />
+                                        </>
+                                    ) : (
+                                        <span className="text-2xl">¡Preparando resultados finales!</span>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900 p-4">
+                    <div className="max-w-6xl mx-auto mb-8">
+                        <div className="bg-white bg-opacity-10 backdrop-blur-md rounded-xl p-6 shadow-2xl">
+                            <div className="flex justify-between items-start mb-4">
+                                <div className="flex-1">
+                                    <div className="flex items-center gap-3 mb-2">
+                                        <h1 className="text-3xl font-bold text-white">
+                                            Nivel {level}/10: {currentLevel.name}
+                                        </h1>
+                                        <span className="text-4xl">{currentLevel.emoji}</span>
+                                    </div>
+                                    <p className="text-blue-200 mb-2">{currentLevel.description}</p>
+                                    <div className="flex gap-2 items-center">
+                                        <div className="bg-yellow-400 bg-opacity-20 px-3 py-1 rounded-full text-yellow-200 text-sm">
+                                            Velocidad: {(500 - currentLevel.speed)}ms
+                                        </div>
+                                        <div className="bg-red-400 bg-opacity-20 px-3 py-1 rounded-full text-red-200 text-sm">
+                                            Cortes necesarios: {targetCuts.length}
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div className="text-right ml-4">
+                                    <div className="text-3xl font-bold text-yellow-300 mb-1">
+                                        {score} pts
+                                    </div>
+                                    <div className="text-sm text-blue-200">
+                                        Cortes: {cuts.length}/{targetCuts.length}
+                                    </div>
+                                    <div className="w-full bg-white bg-opacity-20 rounded-full h-2 mt-2">
+                                        <div 
+                                            className="bg-green-400 h-2 rounded-full transition-all"
+                                            style={{ width: `${(level / levels.length) * 100}%` }}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="max-w-6xl mx-auto">
+                        <div className="bg-white bg-opacity-5 backdrop-blur-md rounded-xl p-8 shadow-2xl">
+                            
+                            <div className="mb-8 relative" style={{ height: '100px' }}>
+                                <div 
+                                    className="absolute transition-all duration-200 ease-out z-10"
+                                    style={{ 
+                                        left: `${(scissorPos / (dnaBlocks.length - 1)) * 100}%`,
+                                        transform: 'translateX(-50%)'
+                                    }}
+                                >
+                                    <div className="text-center">
+                                        <Scissors 
+                                            className={`w-16 h-16 text-yellow-400 drop-shadow-lg transition-all ${
+                                                isMoving ? 'animate-pulse' : 'animate-bounce scale-125'
+                                            }`} 
+                                        />
+                                        <div className="bg-yellow-400 text-black px-3 py-1 rounded-full text-sm font-bold mt-2">
+                                            Cas9
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="flex justify-center items-center gap-1 mb-8 flex-wrap">
+                                {dnaBlocks.map((block) => (
+                                    <div
+                                        key={block.id}
+                                        className={`
+                                            w-12 h-20 rounded-lg transition-all duration-300 flex items-center justify-center font-bold text-white text-xs
+                                            ${block.isCut ? 'bg-green-500 scale-95' : ''}
+                                            ${!block.isCut && block.isTarget ? 'bg-red-500 shadow-lg shadow-red-500/50' : ''}
+                                            ${!block.isCut && !block.isTarget ? 'bg-blue-600' : ''}
+                                            ${block.isHighlighted && !block.isCut ? 'ring-4 ring-yellow-300 scale-110' : ''}
+                                        `}
+                                        style={{
+                                            boxShadow: block.isTarget && !block.isCut ? '0 0 20px rgba(239, 68, 68, 0.5)' : ''
+                                        }}
+                                    >
+                                        {block.isCut ? '✓' : block.isTarget ? '🎯' : 'DNA'}
+                                    </div>
+                                ))}
+                            </div>
+
+                            <div className="flex justify-center gap-8 text-white mb-4">
+                                <div className="flex items-center gap-2 bg-white bg-opacity-10 px-6 py-3 rounded-lg animate-pulse">
+                                    <span className="font-bold text-2xl">⌨️ ESPACIO</span>
+                                    <span className="text-lg">para detener y cortar</span>
+                                </div>
+                            </div>
+
+                            {gameState === 'success' && (
+                                <div className="mt-6 bg-green-500 text-white p-4 rounded-lg text-center font-bold text-xl animate-bounce">
+                                    ¡Edición exitosa! +{100 + (level * 10)} puntos
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="mt-6 flex justify-center md:hidden">
+                            <button
+                                onClick={handleCut}
+                                disabled={gameState !== 'playing'}
+                                className="bg-yellow-500 text-white px-12 py-4 rounded-lg font-bold text-xl shadow-lg disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 transition-transform"
+                            >
+                                ✂️ CORTAR AQUÍ
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        ReactDOM.render(<CRISPRGame />, document.getElementById('root'));
+    </script>
+</body>
+</html>
